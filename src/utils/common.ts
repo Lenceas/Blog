@@ -8,7 +8,6 @@ import { ElForm } from 'element-plus'
 import { useSiteConfig } from '../stores/siteConfig'
 import { useTitle } from '@vueuse/core'
 import { getUrl } from './axios'
-import createAxios from '/@/utils/axios'
 
 export function registerIcons(app: App) {
     /*
@@ -295,61 +294,61 @@ export class baTableApi {
         ])
     }
 
-    index(filter: anyObj = {}): ApiPromise<TableDefaultData> {
-        return createAxios({
-            url: this.actionUrl.get('index'),
-            method: 'get',
-            params: filter,
-        }) as ApiPromise
-    }
+    // index(filter: anyObj = {}): ApiPromise<TableDefaultData> {
+    //     return createAxios({
+    //         url: this.actionUrl.get('index'),
+    //         method: 'get',
+    //         params: filter,
+    //     }) as ApiPromise
+    // }
 
-    edit(params: anyObj) {
-        return createAxios({
-            url: this.actionUrl.get('edit'),
-            method: 'get',
-            params: params,
-        })
-    }
+    // edit(params: anyObj) {
+    //     return createAxios({
+    //         url: this.actionUrl.get('edit'),
+    //         method: 'get',
+    //         params: params,
+    //     })
+    // }
 
-    del(ids: string[]) {
-        return createAxios(
-            {
-                url: this.actionUrl.get('del'),
-                method: 'DELETE',
-                params: {
-                    ids: ids,
-                },
-            },
-            {
-                showSuccessMessage: true,
-            }
-        )
-    }
+    // del(ids: string[]) {
+    //     return createAxios(
+    //         {
+    //             url: this.actionUrl.get('del'),
+    //             method: 'DELETE',
+    //             params: {
+    //                 ids: ids,
+    //             },
+    //         },
+    //         {
+    //             showSuccessMessage: true,
+    //         }
+    //     )
+    // }
 
-    postData(action: string, data: anyObj) {
-        if (!this.actionUrl.has(action)) {
-            throw new Error('action does not exist')
-        }
-        return createAxios(
-            {
-                url: this.actionUrl.get(action),
-                method: 'post',
-                data: data,
-            },
-            {
-                showSuccessMessage: true,
-            }
-        )
-    }
+    // postData(action: string, data: anyObj) {
+    //     if (!this.actionUrl.has(action)) {
+    //         throw new Error('action does not exist')
+    //     }
+    //     return createAxios(
+    //         {
+    //             url: this.actionUrl.get(action),
+    //             method: 'post',
+    //             data: data,
+    //         },
+    //         {
+    //             showSuccessMessage: true,
+    //         }
+    //     )
+    // }
 
-    sortableApi(id: number, targetId: number) {
-        return createAxios({
-            url: this.actionUrl.get('sortable'),
-            method: 'post',
-            data: {
-                id: id,
-                targetId: targetId,
-            },
-        })
-    }
+    // sortableApi(id: number, targetId: number) {
+    //     return createAxios({
+    //         url: this.actionUrl.get('sortable'),
+    //         method: 'post',
+    //         data: {
+    //             id: id,
+    //             targetId: targetId,
+    //         },
+    //     })
+    // }
 }

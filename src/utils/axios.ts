@@ -1,4 +1,4 @@
-import axios from 'axios'
+// import axios from 'axios'
 import type { AxiosRequestConfig, AxiosPromise, Method } from 'axios'
 import globalAxios, { AxiosInstance } from 'axios'
 import { Configuration } from '/@/api-services'
@@ -8,8 +8,7 @@ import { useConfig } from '/@/stores/config'
 import { isAdminApp } from '/@/utils/common'
 import router from '/@/router/index'
 // import { refreshToken } from '/@/api/common'
-// import { useUserInfo } from '/@/stores/userInfo'
-// import { useAdminInfo } from '/@/stores/adminInfo'
+import { useAdminInfo } from '/@/stores/adminInfo'
 
 /*
  * 根据运行环境获取基础请求URL
@@ -38,7 +37,9 @@ export const serveConfig = new Configuration({
 export const accessTokenKey = 'access-token'
 export const refreshAccessTokenKey = `x-${accessTokenKey}`
 
-// 清除 token
+/*
+ * 清除 token
+ */
 export const clearAccessTokens = () => {
     window.localStorage.removeItem(accessTokenKey)
     window.localStorage.removeItem(refreshAccessTokenKey)
@@ -54,183 +55,29 @@ const loadingInstance: LoadingInstance = {
     count: 0,
 }
 
-/*
- * 创建Axios
- * 默认开启`reductDataFormat(简洁响应)`,返回类型为`ApiPromise`
- * 关闭`reductDataFormat`,返回类型则为`AxiosPromise`
- */
-function createAxios(axiosConfig: AxiosRequestConfig, options: Options = {}, loading: LoadingOptions = {}): ApiPromise | AxiosPromise {
-    // todo:
-    const config = useConfig()
-    // const adminInfo = useAdminInfo()
-    // const userInfo = useUserInfo()
-
-    const Axios = axios.create({
-        baseURL: getUrl(),
-        timeout: 1000 * 10,
-        headers: {
-            'think-lang': config.lang.defaultLang,
-            server: true,
-        },
-        responseType: 'json',
-    })
-
-    options = Object.assign(
-        {
-            CancelDuplicateRequest: true, // 是否开启取消重复请求, 默认为 true
-            loading: false, // 是否开启loading层效果, 默认为false
-            reductDataFormat: true, // 是否开启简洁的数据结构响应, 默认为true
-            showErrorMessage: true, // 是否开启接口错误信息展示,默认为true
-            showCodeMessage: true, // 是否开启code不为1时的信息提示, 默认为true
-            showSuccessMessage: false, // 是否开启code为1时的信息提示, 默认为false
-            anotherToken: '', // 当前请求使用另外的用户token
-        },
-        options
-    )
-
-    // 请求拦截
-    // Axios.interceptors.request.use(
-    //     (config) => {
-    //         removePending(config)
-    //         options.CancelDuplicateRequest && addPending(config)
-    //         // 创建loading实例
-    //         if (options.loading) {
-    //             loadingInstance.count++
-    //             if (loadingInstance.count === 1) {
-    //                 loadingInstance.target = ElLoading.service(loading)
-    //             }
-    //         }
-
-    //         // 自动携带token
-    //         if (config.headers) {
-    //             const token = adminInfo.getToken()
-    //             if (token) (config.headers as anyObj).batoken = token
-    //             const userToken = options.anotherToken || userInfo.getToken()
-    //             if (userToken) (config.headers as anyObj)['ba-user-token'] = userToken
-    //         }
-
-    //         return config
-    //     },
-    //     (error) => {
-    //         return Promise.reject(error)
-    //     }
-    // )
-
-    // 响应拦截
-    // Axios.interceptors.response.use(
-    //     (response) => {
-    //         removePending(response.config)
-    //         options.loading && closeLoading(options) // 关闭loading
-
-    //         if (response.config.responseType == 'json') {
-    //             if (response.data && response.data.code !== 1) {
-    //                 if (response.data.code == 409) {
-    //                     if (!window.tokenRefreshing) {
-    //                         window.tokenRefreshing = true
-    //                         return refreshToken()
-    //                             .then((res) => {
-    //                                 if (res.data.type == 'admin-refresh') {
-    //                                     adminInfo.setToken(res.data.token, 'token')
-    //                                     response.headers.batoken = `${res.data.token}`
-    //                                     window.requests.forEach((cb) => cb(res.data.token, 'admin-refresh'))
-    //                                 } else if (res.data.type == 'user-refresh') {
-    //                                     userInfo.setToken(res.data.token, 'token')
-    //                                     response.headers['ba-user-token'] = `${res.data.token}`
-    //                                     window.requests.forEach((cb) => cb(res.data.token, 'user-refresh'))
-    //                                 }
-    //                                 window.requests = []
-    //                                 return Axios(response.config)
-    //                             })
-    //                             .catch((err) => {
-    //                                 if (isAdminApp()) {
-    //                                     adminInfo.removeToken()
-    //                                     if (router.currentRoute.value.name != 'adminLogin') {
-    //                                         router.push({ name: 'adminLogin' })
-    //                                         return Promise.reject(err)
-    //                                     } else {
-    //                                         response.headers.batoken = ''
-    //                                         window.requests.forEach((cb) => cb('', 'admin-refresh'))
-    //                                         window.requests = []
-    //                                         return Axios(response.config)
-    //                                     }
-    //                                 } else {
-    //                                     userInfo.removeToken()
-    //                                     if (router.currentRoute.value.name != 'userLogin') {
-    //                                         router.push({ name: 'userLogin' })
-    //                                         return Promise.reject(err)
-    //                                     } else {
-    //                                         response.headers['ba-user-token'] = ''
-    //                                         window.requests.forEach((cb) => cb('', 'user-refresh'))
-    //                                         window.requests = []
-    //                                         return Axios(response.config)
-    //                                     }
-    //                                 }
-    //                             })
-    //                             .finally(() => {
-    //                                 window.tokenRefreshing = false
-    //                             })
-    //                     } else {
-    //                         return new Promise((resolve) => {
-    //                             // 用函数形式将 resolve 存入，等待刷新后再执行
-    //                             window.requests.push((token: string, type: string) => {
-    //                                 if (type == 'admin-refresh') {
-    //                                     response.headers.batoken = `${token}`
-    //                                 } else {
-    //                                     response.headers['ba-user-token'] = `${token}`
-    //                                 }
-    //                                 resolve(Axios(response.config))
-    //                             })
-    //                         })
-    //                     }
-    //                 }
-    //                 if (options.showCodeMessage) {
-    //                     ElNotification({
-    //                         type: 'error',
-    //                         message: response.data.msg,
-    //                     })
-    //                 }
-    //                 // 自动跳转到路由name或path，仅限server端返回302的情况
-    //                 if (response.data.code == 302) {
-    //                     if (isAdminApp()) {
-    //                         adminInfo.removeToken()
-    //                     } else {
-    //                         userInfo.removeToken()
-    //                     }
-    //                     if (response.data.data.routeName) {
-    //                         router.push({ name: response.data.data.routeName })
-    //                     } else if (response.data.data.routePath) {
-    //                         router.push({ path: response.data.data.routePath })
-    //                     }
-    //                 }
-    //                 // code不等于1, 页面then内的具体逻辑就不执行了
-    //                 return Promise.reject(response.data)
-    //             } else if (options.showSuccessMessage && response.data && response.data.code == 1) {
-    //                 ElNotification({
-    //                     message: response.data.msg ? response.data.msg : i18n.global.t('axios.Operation successful'),
-    //                     type: 'success',
-    //                 })
-    //             }
-    //         }
-
-    //         return options.reductDataFormat ? response.data : response
-    //     },
-    //     (error) => {
-    //         error.config && removePending(error.config)
-    //         options.loading && closeLoading(options) // 关闭loading
-    //         options.showErrorMessage && httpErrorStatusHandle(error) // 处理错误状态码
-    //         return Promise.reject(error) // 错误继续返回给到具体页面
-    //     }
-    // )
-
-    return options.reductDataFormat ? (Axios(axiosConfig) as ApiPromise) : (Axios(axiosConfig) as AxiosPromise)
-}
-
-export default createAxios
-
 /**
  * axios 默认实例
  */
 export const axiosInstance: AxiosInstance = globalAxios
+
+/**
+ * 检查并存储授权信息
+ * @param res 响应对象
+ */
+export function checkAndStoreAuthentication(res: any): void {
+    // 读取响应报文头 token 信息
+    const accessToken = res.headers[accessTokenKey]
+    const refreshAccessToken = res.headers[refreshAccessTokenKey]
+    // 判断是否是无效 token
+    if (accessToken === 'invalid_token') {
+        clearAccessTokens()
+    }
+    // 判断是否存在刷新 token，如果存在则存储在本地
+    else if (refreshAccessToken && accessToken && accessToken !== 'invalid_token') {
+        window.localStorage.setItem(accessTokenKey, accessToken)
+        window.localStorage.setItem(refreshAccessTokenKey, refreshAccessToken)
+    }
+}
 
 /**
  * 包装 Promise 并返回 [Error, any]
@@ -274,7 +121,7 @@ export function getAPI<T extends BaseAPI>(
  */
 function httpErrorStatusHandle(error: any) {
     // 处理被取消的请求
-    if (axios.isCancel(error)) return console.error('因为请求重复被自动取消：' + error.message)
+    if (globalAxios.isCancel(error)) return console.error('因为请求重复被自动取消：' + error.message)
     let message = ''
     if (error && error.response) {
         switch (error.response.status) {
@@ -349,7 +196,7 @@ function addPending(config: AxiosRequestConfig) {
     const pendingKey = getPendingKey(config)
     config.cancelToken =
         config.cancelToken ||
-        new axios.CancelToken((cancel) => {
+        new globalAxios.CancelToken((cancel) => {
             if (!pendingMap.has(pendingKey)) {
                 pendingMap.set(pendingKey, cancel)
             }
@@ -400,10 +247,21 @@ export function requestPayload(method: Method, data: anyObj) {
     }
 }
 
+/**
+ * 将 JWT 时间戳转换成 Date
+ * @description 主要针对 `exp`，`iat`，`nbf`
+ * @param timestamp 时间戳
+ * @returns Date 对象
+ */
+export function getJWTDate(timestamp: number): Date {
+    return new Date(timestamp * 1000)
+}
+
 interface LoadingInstance {
     target: any
     count: number
 }
+
 interface Options {
     // 是否开启取消重复请求, 默认为 true
     CancelDuplicateRequest?: boolean
@@ -420,3 +278,106 @@ interface Options {
     // 当前请求使用另外的用户token
     anotherToken?: string
 }
+
+/**
+ * 解密 JWT token 的信息
+ * @param token jwt token 字符串
+ * @returns <any>object
+ */
+export function decryptJWT(token: string): any {
+    token = token.replace(/_/g, '/').replace(/-/g, '+')
+    const json = decodeURIComponent(escape(window.atob(token.split('.')[1])))
+    return JSON.parse(json)
+}
+
+const options: Options = {
+    CancelDuplicateRequest: true, // 是否开启取消重复请求, 默认为 true
+    loading: false, // 是否开启loading层效果, 默认为false
+    reductDataFormat: true, // 是否开启简洁的数据结构响应, 默认为true
+    showErrorMessage: true, // 是否开启接口错误信息展示,默认为true
+    showCodeMessage: true, // 是否开启code不为1时的信息提示, 默认为true
+    showSuccessMessage: false, // 是否开启code为1时的信息提示, 默认为false
+    anotherToken: '', // 当前请求使用另外的用户token
+}
+
+// axios 请求拦截
+axiosInstance.interceptors.request.use(
+    (conf) => {
+        removePending(conf)
+        options.CancelDuplicateRequest && addPending(conf)
+        // 创建loading实例
+        if (options.loading) {
+            loadingInstance.count++
+            if (loadingInstance.count === 1) {
+                // loadingInstance.target = ElLoading.service(loading)
+            }
+        }
+
+        // 自动携带token
+        if (conf.headers) {
+            const token = useAdminInfo().getToken()
+            if (token) (conf.headers as anyObj).batoken = token
+        }
+
+        return conf
+    },
+    (error) => {
+        return Promise.reject(error)
+    }
+)
+
+// axios 响应拦截
+axiosInstance.interceptors.response.use(
+    (response) => {
+        removePending(response.config)
+        options.loading && closeLoading(options) // 关闭loading
+
+        if (response.config.responseType == 'json') {
+            if (response.data && !response.data.succeeded) {
+                if (response.data.statuscode == 409) {
+                    if (!window.tokenRefreshing) {
+                        window.tokenRefreshing = true
+                        // todo:调用刷新token接口
+                        window.tokenRefreshing = false
+                    } else {
+                        window.requests.push((token: string, type: string) => {
+                            if (type == 'admin-refresh') {
+                                response.headers.batoken = `${token}`
+                            }
+                        })
+                    }
+                }
+                if (options.showCodeMessage) {
+                    ElNotification({
+                        type: 'error',
+                        message: response.data.msg,
+                    })
+                }
+                // 自动跳转到路由name或path，仅限server端返回302的情况
+                if (response.data.statuscode == 302) {
+                    if (isAdminApp()) {
+                        useAdminInfo().removeToken()
+                    }
+                    if (response.data.data.routeName) {
+                        router.push({ name: response.data.data.routeName })
+                    } else if (response.data.data.routePath) {
+                        router.push({ path: response.data.data.routePath })
+                    }
+                }
+            } else if (options.showSuccessMessage && response.data && response.data.succeeded) {
+                ElNotification({
+                    message: response.data.msg ? response.data.msg : '操作成功',
+                    type: 'success',
+                })
+            }
+        }
+
+        return options.reductDataFormat ? response.data : response
+    },
+    (error) => {
+        error.config && removePending(error.config)
+        options.loading && closeLoading(options) // 关闭loading
+        options.showErrorMessage && httpErrorStatusHandle(error) // 处理错误状态码
+        return Promise.reject(error) // 错误继续返回给到具体页面
+    }
+)

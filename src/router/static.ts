@@ -1,7 +1,7 @@
 import { RouteRecordRaw } from 'vue-router'
 
 const pageTitle = (name: string): string => {
-    return `pagesTitle.${name}`
+    return `${name} - 卢杰晟个人博客`
 }
 
 /*
@@ -82,7 +82,7 @@ const adminBaseRoute: RouteRecordRaw = {
             name: 'adminMainLoading',
             component: () => import('/@/layouts/common/components/loading.vue'),
             meta: {
-                title: pageTitle('Loading...'),
+                title: pageTitle('Loading'),
             },
         },
     ],

@@ -72,16 +72,16 @@ import * as pageBubble from '/@/utils/pageBubble'
 import type { ElForm, ElInput } from 'element-plus'
 import { ElNotification } from 'element-plus'
 import { useConfig } from '/@/stores/config'
-// import { useAdminInfo } from '/@/stores/adminInfo'
+import { useAdminInfo } from '/@/stores/adminInfo'
 import { uuid } from '/@/utils/random'
-// import { buildValidatorData } from '/@/utils/validate'
+import { buildValidatorData } from '/@/utils/validate'
 import { getAPI, feature } from '/@/utils/axios'
 import { AuthApi } from '/@/api-services'
 import router from '/@/router'
 var timer: NodeJS.Timer
 
 const config = useConfig()
-// const adminInfo = useAdminInfo()
+const adminInfo = useAdminInfo()
 
 const state = reactive({
     showCaptcha: false,
@@ -108,16 +108,17 @@ const form = reactive({
 
 // 表单验证规则
 const rules = reactive({
-    // username: [buildValidatorData({ name: 'required', message: '请输入账号' }), buildValidatorData({ name: 'account' })],
-    // password: [buildValidatorData({ name: 'required', message: '请输入密码' }), buildValidatorData({ name: 'password' })],
-    // captcha: [
-    //     buildValidatorData({ name: 'required', title: '请输入验证码' }),
-    //     {
-    //         length: 4,
-    //         message: '请输入4位长度的验证码',
-    //         trigger: 'blur',
-    //     },
-    // ],
+    username: [buildValidatorData({ name: 'required', message: '请输入账号' }), buildValidatorData({ name: 'account' })],
+    password: [buildValidatorData({ name: 'required', message: '请输入密码' }), buildValidatorData({ name: 'password' })],
+    captcha: [
+        buildValidatorData({ name: 'required', title: '验证码' }),
+        {
+            min: 4,
+            max: 4,
+            message: '请输入4位长度的验证码',
+            trigger: 'blur',
+        },
+    ],
 })
 
 const buildCaptchaUrl = () => {}
@@ -157,12 +158,16 @@ const onSubmit = (formEl: InstanceType<typeof ElForm> | undefined) => {
             const [err, res] = await feature(getAPI(AuthApi).apiV1AuthLoginPost({ userName: form.username, password: form.password }))
             if (err) {
                 console.log(err)
+                onChangeCaptcha()
+                form.loading = false
             } else {
                 form.loading = false
+                // adminInfo.dataFill(res.data.userInfo)
                 ElNotification({
                     message: res.data.msg ?? '',
                     type: 'success',
                 })
+                router.push({ path: '/' })
             }
         } else {
             onChangeCaptcha()

@@ -11,7 +11,15 @@
                 <div class="form">
                     <img class="profile-avatar" src="~assets/avatar.jpg" alt="" />
                     <div class="content">
-                        <el-form @keyup.enter="onSubmit(formRef)" ref="formRef" :rules="rules" size="large" :model="form">
+                        <el-form
+                            @keyup.enter="onSubmit(formRef)"
+                            ref="formRef"
+                            :rules="rules"
+                            size="large"
+                            :model="form"
+                            :hide-required-asterisk="true"
+                            :status-icon="true"
+                        >
                             <el-form-item prop="username">
                                 <el-input ref="usernameRef" type="text" clearable v-model="form.username" :placeholder="'请输入账号'">
                                     <template #prefix>
@@ -43,16 +51,11 @@
                                         </el-input>
                                     </el-col>
                                     <el-col :span="8">
-                                        <img
-                                            @click="onChangeCaptcha"
-                                            class="captcha-img"
-                                            :src="buildCaptchaUrl() + '&id=' + state.captchaId"
-                                            alt=""
-                                        />
+                                        <img @click="onChangeCaptcha" class="captcha-img" :src="state.captchaUrl" alt="" />
                                     </el-col>
                                 </el-row>
                             </el-form-item>
-                            <el-checkbox v-model="form.keep" :label="'保持会话'" size="default"></el-checkbox>
+                            <!-- <el-checkbox v-model="form.keep" :label="'保持会话'" size="default"></el-checkbox> -->
                             <el-form-item>
                                 <el-button :loading="form.loading" class="submit-button" round type="primary" size="large" @click="onSubmit(formRef)">
                                     登录
@@ -70,13 +73,13 @@
 import { onMounted, onBeforeUnmount, reactive, ref, nextTick } from 'vue'
 import * as pageBubble from '/@/utils/pageBubble'
 import type { ElForm, ElInput } from 'element-plus'
-import { ElNotification } from 'element-plus'
+import { ElMessage, ElNotification } from 'element-plus'
 import { useConfig } from '/@/stores/config'
 import { useAdminInfo } from '/@/stores/adminInfo'
 import { uuid } from '/@/utils/random'
 import { buildValidatorData } from '/@/utils/validate'
-import { getAPI, feature } from '/@/utils/axios'
-import { AuthApi } from '/@/api-services'
+import { getAPI, feature, decryptJWT } from '/@/utils/axios'
+import { DefaultApi } from '/@/api-services'
 import router from '/@/router'
 var timer: NodeJS.Timer
 
@@ -86,11 +89,14 @@ const adminInfo = useAdminInfo()
 const state = reactive({
     showCaptcha: false,
     captchaId: uuid(),
+    captchaUrl: '',
 })
 
 const onChangeCaptcha = () => {
     form.captcha = ''
     state.captchaId = uuid()
+    form.captcha_id = state.captchaId
+    onGetCaptchaUrl()
 }
 
 const formRef = ref<InstanceType<typeof ElForm>>()
@@ -110,18 +116,8 @@ const form = reactive({
 const rules = reactive({
     username: [buildValidatorData({ name: 'required', message: '请输入账号' }), buildValidatorData({ name: 'account' })],
     password: [buildValidatorData({ name: 'required', message: '请输入密码' }), buildValidatorData({ name: 'password' })],
-    captcha: [
-        buildValidatorData({ name: 'required', title: '验证码' }),
-        {
-            min: 4,
-            max: 4,
-            message: '请输入4位长度的验证码',
-            trigger: 'blur',
-        },
-    ],
+    captcha: [buildValidatorData({ name: 'required', message: '请输入验证码' }), buildValidatorData({ name: 'captcha' })],
 })
-
-const buildCaptchaUrl = () => {}
 
 const focusInput = () => {
     if (form.username === '') {
@@ -133,15 +129,22 @@ const focusInput = () => {
     }
 }
 
-onMounted(() => {
+onMounted(async () => {
     timer = setTimeout(() => {
         pageBubble.init()
     }, 1000)
-    state.showCaptcha = true
-    onChangeCaptcha()
-    nextTick(() => {
-        focusInput()
-    })
+
+    // Api请求：是否启用登录验证码
+    const [err, res] = await feature(getAPI(DefaultApi).apiV1BaseAuthLoginShowCaptcha10Get())
+    if (err) {
+        // console.log(err)
+    } else {
+        state.showCaptcha = !!res.data
+        onGetCaptchaUrl()
+        nextTick(() => {
+            focusInput()
+        })
+    }
 })
 
 onBeforeUnmount(() => {
@@ -149,25 +152,53 @@ onBeforeUnmount(() => {
     pageBubble.removeListeners()
 })
 
+const onGetCaptchaUrl = async () => {
+    // Api请求：获取登录图片验证码
+    const [err, res] = await feature(getAPI(DefaultApi).apiV1BaseAuthLoginVerifyCode10IdGet(state.captchaId))
+    if (err) {
+        // console.log(err)
+    } else {
+        // console.log(res)
+        state.captchaUrl = res.data as string
+    }
+}
+
 const onSubmit = (formEl: InstanceType<typeof ElForm> | undefined) => {
     if (!formEl) return
     formEl.validate(async (valid) => {
         if (valid) {
             form.loading = true
             form.captcha_id = state.captchaId
-            const [err, res] = await feature(getAPI(AuthApi).apiV1AuthLoginPost({ userName: form.username, password: form.password }))
+            const [err, res] = await feature(
+                getAPI(DefaultApi).apiV1BaseAuthLogin10Post({
+                    id: form.captcha_id,
+                    userName: form.username,
+                    passWord: form.password,
+                    captcha: state.showCaptcha ? form.captcha : '',
+                })
+            )
             if (err) {
-                console.log(err)
                 onChangeCaptcha()
                 form.loading = false
             } else {
                 form.loading = false
-                // adminInfo.dataFill(res.data.userInfo)
-                ElNotification({
-                    message: res.data.msg ?? '',
-                    type: 'success',
-                })
-                router.push({ path: '/' })
+                console.log(res)
+                var data = res.data!
+                console.log('res.data.data! : ' + data)
+                if (res.data) {
+                    // console.log(data.token)
+                    // adminInfo.dataFill(res.data.userInfo)
+                    // const token = res.data.data?.token as string
+                    // console.log('token:' + token)
+                    // const tokenInfo = decryptJWT(token)
+                    // console.log(tokenInfo)
+                    // ElNotification.success('登录成功！')
+                    // ElNotification({
+                    //     message: res.data.msg ?? '',
+                    //     type: 'success',
+                    // })
+                    // router.push({ path: '/' })
+                }
             }
         } else {
             onChangeCaptcha()

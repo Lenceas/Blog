@@ -12,7 +12,6 @@ import '/@/styles/index.scss'
 // modules import mark, Please do not remove.
 
 async function start() {
-
     const app = createApp(App)
 
     app.use(pinia)

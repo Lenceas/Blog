@@ -45,6 +45,22 @@ export function validatorPassword(rule: any, val: string, callback: Function) {
 }
 
 /**
+ * 验证码验证
+ */
+export function regularCaptcha(val: string) {
+    return /^[a-zA-Z0-9]{4}$/.test(val)
+}
+export function validatorCaptcha(rule: any, val: string, callback: Function) {
+    if (!val) {
+        return callback()
+    }
+    if (!regularCaptcha(val)) {
+        return callback(new Error('请输入正确的4位验证码'))
+    }
+    return callback()
+}
+
+/**
  * 变量名验证
  */
 export function regularVarName(val: string) {
@@ -72,6 +88,7 @@ export const validatorType = {
     mobile: '手机号',
     account: '账号',
     password: '密码',
+    captcha: '验证码',
     varName: '变量名',
     url: 'URL',
     email: '邮箱',
@@ -82,11 +99,24 @@ export const validatorType = {
 }
 
 export interface buildValidatorParams {
-    // 规则名:required=必填,mobile=手机号,account=账号,password=密码,varName=变量名,editorRequired=富文本必填,number、integer、float、date、url、email
-    name: 'required' | 'mobile' | 'account' | 'password' | 'varName' | 'editorRequired' | 'number' | 'integer' | 'float' | 'date' | 'url' | 'email'
+    // 规则名:required=必填,mobile=手机号,account=账号,password=密码,captcha=验证码,varName=变量名,editorRequired=富文本必填,number、integer、float、date、url、email
+    name:
+        | 'required'
+        | 'mobile'
+        | 'account'
+        | 'password'
+        | 'captcha'
+        | 'varName'
+        | 'editorRequired'
+        | 'number'
+        | 'integer'
+        | 'float'
+        | 'date'
+        | 'url'
+        | 'email'
     // 自定义验证错误消息
     message?: string
-    // 验证项的标题，这些验证方式不支持:mobile、account、password、varName、editorRequired
+    // 验证项的标题，这些验证方式不支持:mobile、account、password、captcha、varName、editorRequired
     title?: string
     // 验证触发方式
     trigger?: 'change' | 'blur'
@@ -121,6 +151,7 @@ export function buildValidatorData({ name, message, title, trigger = 'blur' }: b
         mobile: validatorMobile,
         account: validatorAccount,
         password: validatorPassword,
+        captcha: validatorCaptcha,
         varName: validatorVarName,
         editorRequired: validatorEditorRequired,
     }

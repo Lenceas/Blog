@@ -16,6 +16,7 @@
     "echarts": "^5.4.1",
     "element-plus": "^2.3.1",
     "esno": "^0.16.3",
+    "jwt-decode": "^3.1.2",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.0",
     "nprogress": "^0.2.0",

@@ -9,6 +9,9 @@ import { isAdminApp } from '/@/utils/common'
 import router from '/@/router/index'
 // import { refreshToken } from '/@/api/common'
 import { useAdminInfo } from '/@/stores/adminInfo'
+import { Console } from 'console'
+import { fa } from 'element-plus/es/locale'
+import jwt_decode from 'jwt-decode'
 
 /*
  * 根据运行环境获取基础请求URL
@@ -113,69 +116,6 @@ export function getAPI<T extends BaseAPI>(
     axiosObject: AxiosInstance = axiosInstance
 ) {
     return new apiType(configuration, basePath, axiosObject)
-}
-
-/**
- * 处理异常
- * @param {*} error
- */
-function httpErrorStatusHandle(error: any) {
-    // 处理被取消的请求
-    if (globalAxios.isCancel(error)) return console.error('因为请求重复被自动取消：' + error.message)
-    let message = ''
-    if (error && error.response) {
-        switch (error.response.status) {
-            case 302:
-                message = '接口重定向了！'
-                break
-            case 400:
-                message = '参数不正确！'
-                break
-            case 401:
-                message = '您没有权限操作！'
-                break
-            case 403:
-                message = '您没有权限操作！'
-                break
-            case 404:
-                message = '请求地址出错:' + error.response.config.url
-                break
-            case 408:
-                message = '请求超时！'
-                break
-            case 409:
-                message = '系统已存在相同数据！'
-                break
-            case 500:
-                message = '服务器内部错误！'
-                break
-            case 501:
-                message = '服务未实现！'
-                break
-            case 502:
-                message = '网关错误！'
-                break
-            case 503:
-                message = '服务不可用！'
-                break
-            case 504:
-                message = '服务暂时无法访问，请稍后再试！'
-                break
-            case 505:
-                message = 'HTTP版本不受支持！'
-                break
-            default:
-                message = '异常问题，请联系网站管理员！'
-                break
-        }
-    }
-    if (error.message.includes('timeout')) message = '网络请求超时！'
-    if (error.message.includes('Network')) message = window.navigator.onLine ? '服务端异常！' : '您断网了！'
-
-    ElNotification({
-        type: 'error',
-        message,
-    })
 }
 
 /**
@@ -285,9 +225,7 @@ interface Options {
  * @returns <any>object
  */
 export function decryptJWT(token: string): any {
-    token = token.replace(/_/g, '/').replace(/-/g, '+')
-    const json = decodeURIComponent(escape(window.atob(token.split('.')[1])))
-    return JSON.parse(json)
+    return jwt_decode(token)
 }
 
 const options: Options = {
@@ -295,8 +233,8 @@ const options: Options = {
     loading: false, // 是否开启loading层效果, 默认为false
     reductDataFormat: true, // 是否开启简洁的数据结构响应, 默认为true
     showErrorMessage: true, // 是否开启接口错误信息展示,默认为true
-    showCodeMessage: true, // 是否开启code不为1时的信息提示, 默认为true
-    showSuccessMessage: false, // 是否开启code为1时的信息提示, 默认为false
+    showCodeMessage: true, // 是否开启请求失败时的信息提示, 默认为true
+    showSuccessMessage: false, // 是否开启请求成功时的信息提示, 默认为false
     anotherToken: '', // 当前请求使用另外的用户token
 }
 
@@ -305,17 +243,11 @@ axiosInstance.interceptors.request.use(
     (conf) => {
         removePending(conf)
         options.CancelDuplicateRequest && addPending(conf)
-        // 创建loading实例
-        if (options.loading) {
-            loadingInstance.count++
-            if (loadingInstance.count === 1) {
-                // loadingInstance.target = ElLoading.service(loading)
-            }
-        }
 
         // 自动携带token
         if (conf.headers) {
             const token = useAdminInfo().getToken()
+            // console.log('token:' + token)
             if (token) (conf.headers as anyObj).batoken = token
         }
 
@@ -331,44 +263,33 @@ axiosInstance.interceptors.response.use(
     (response) => {
         removePending(response.config)
         options.loading && closeLoading(options) // 关闭loading
-
-        if (response.config.responseType == 'json') {
-            if (response.data && !response.data.succeeded) {
-                if (response.data.statuscode == 409) {
-                    if (!window.tokenRefreshing) {
-                        window.tokenRefreshing = true
-                        // todo:调用刷新token接口
-                        window.tokenRefreshing = false
-                    } else {
-                        window.requests.push((token: string, type: string) => {
-                            if (type == 'admin-refresh') {
-                                response.headers.batoken = `${token}`
-                            }
-                        })
-                    }
-                }
-                if (options.showCodeMessage) {
-                    ElNotification({
-                        type: 'error',
-                        message: response.data.msg,
+        if (response.data && !response.data.succeeded) {
+            if (response.data.statuscode == 409) {
+                if (!window.tokenRefreshing) {
+                    window.tokenRefreshing = true
+                    // todo:调用刷新token接口
+                    window.tokenRefreshing = false
+                } else {
+                    window.requests.push((token: string, type: string) => {
+                        if (type == 'admin-refresh') {
+                            response.headers.batoken = `${token}`
+                        }
                     })
                 }
-                // 自动跳转到路由name或path，仅限server端返回302的情况
-                if (response.data.statuscode == 302) {
-                    if (isAdminApp()) {
-                        useAdminInfo().removeToken()
-                    }
-                    if (response.data.data.routeName) {
-                        router.push({ name: response.data.data.routeName })
-                    } else if (response.data.data.routePath) {
-                        router.push({ path: response.data.data.routePath })
-                    }
-                }
-            } else if (options.showSuccessMessage && response.data && response.data.succeeded) {
-                ElNotification({
-                    message: response.data.msg ? response.data.msg : '操作成功',
-                    type: 'success',
-                })
+            }
+            if (options.showCodeMessage) {
+                ElNotification.error(response.data.errors)
+            }
+            // 自动跳转到路由name或path，仅限server端返回302的情况
+            if (response.data.statuscode == 302) {
+                // if (isAdminApp()) {
+                //     useAdminInfo().removeToken()
+                // }
+                // if (response.data.data.routeName) {
+                //     router.push({ name: response.data.data.routeName })
+                // } else if (response.data.data.routePath) {
+                //     router.push({ path: response.data.data.routePath })
+                // }
             }
         }
 
@@ -381,3 +302,16 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(error) // 错误继续返回给到具体页面
     }
 )
+
+/**
+ * 处理异常
+ * @param {*} error
+ */
+export function httpErrorStatusHandle(error: any) {
+    // 处理被取消的请求
+    if (globalAxios.isCancel(error)) return console.error('因为请求重复被自动取消：' + error.message)
+    let message = ''
+    if (error.message.includes('timeout')) message = '网络请求超时！'
+    if (error.message.includes('Network')) message = window.navigator.onLine ? '服务端异常！' : '您断网了！'
+    ElNotification.error(message)
+}
